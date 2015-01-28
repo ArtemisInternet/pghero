@@ -1,2 +1,2 @@
-Pgheroine::Engine.routes.draw do
+PGHeroine::Engine.routes.draw do
 end

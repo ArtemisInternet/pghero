@@ -1,3 +1,3 @@
-module Pgheroine
+module PGHeroine
   VERSION = "0.0.1"
 end
