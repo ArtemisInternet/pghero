@@ -4,8 +4,6 @@ module PGHeroine
 
     protect_from_forgery
 
-    http_basic_authenticate_with name: ENV["PGHEROINE_USERNAME"], password: ENV["PGHEROINE_PASSWORD"] if ENV["PGHEROINE_PASSWORD"]
-
     def index
       @title = "Status"
 

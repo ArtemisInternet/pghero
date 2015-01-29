@@ -9,8 +9,8 @@ module PGHeroine
   class ConnectionBuilder
     attr_reader :connection
 
-    def initialize(database_name) 
-      self.connection = connections[database_name.to_sym]
+    def initialize(database_name)
+      self.connection = connections[database_name.to_sym].connection
     end
 
     private
@@ -35,7 +35,7 @@ module PGHeroine
     def self.setup_database_configurations
       Hash.new do |hash, key|
         hash[key] = if raw_config.key?(key.to_s)
-          generate_anonymous_activerecord_class_for(key).connection
+          generate_anonymous_activerecord_class_for(key)
         else
           raise DatabaseConfigurationNotFound,
             "#{key} not found in #{configuration_file_path} for the #{Rails.env} environment"
@@ -44,7 +44,11 @@ module PGHeroine
     end
 
     def self.raw_config
-      @raw_config ||= YAML.load_file(configuration_file_path)
+      @raw_config ||= YAML.load(
+        ERB.new(
+          File.read(configuration_file_path)
+        ).result
+      )
       
       @raw_config.fetch(Rails.env) do |key|
         raise DatabaseConfigurationNotFound,
@@ -57,19 +61,19 @@ module PGHeroine
     end
 
     def self.generate_anonymous_activerecord_class_for(database_name)
-      config = raw_config[database_name] 
+      config = raw_config[database_name.to_s]
       class_name = %Q|#{database_name.capitalize}Connection|
 
-      Class.new(ActiveRecord::Base) do
+      klass = Class.new(ActiveRecord::Base) do
         self.table_name = %q|pgheroine_to_the_rescue|
 
         def self.name
           "PGHeroine::AnonymousConnectionClass"
         end
-
-        establish_connection config
       end
-    end
 
+      klass.send(:establish_connection, config)
+      klass
+    end
   end
 end
