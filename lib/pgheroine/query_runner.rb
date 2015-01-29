@@ -1,18 +1,19 @@
 module PGHeroine
-  # hack for connection
-  class Connection < ActiveRecord::Base
-    establish_connection ENV["PGHEROINE_DATABASE_URL"] if ENV["PGHEROINE_DATABASE_URL"]
-  end
+  class QueryRunner
+    class << self
+      attr_accessor :long_running_query_sec, :slow_query_ms, :slow_query_calls, :total_connections_threshold
+    end
+    delegate :long_running_query_sec, :slow_query_ms, :slow_query_calls, :total_connections_threshold, to: :class
 
-  class << self
-    attr_accessor :long_running_query_sec, :slow_query_ms, :slow_query_calls, :total_connections_threshold
-  end
-  self.long_running_query_sec = 60
-  self.slow_query_ms = 20
-  self.slow_query_calls = 100
-  self.total_connections_threshold = 100
+    self.long_running_query_sec = 60
+    self.slow_query_ms = 20
+    self.slow_query_calls = 100
+    self.total_connections_threshold = 100
 
-  class << self
+    def initialize(connection)
+      self.connection = connection
+    end
+
 
     def running_queries
       select_all <<-SQL
@@ -302,24 +303,6 @@ module PGHeroine
       end
     end
 
-    def enable_query_stats
-      execute("CREATE EXTENSION pg_stat_statements")
-    end
-
-    def disable_query_stats
-      execute("DROP EXTENSION IF EXISTS pg_stat_statements")
-      true
-    end
-
-    def reset_query_stats
-      if query_stats_enabled?
-        execute("SELECT pg_stat_statements_reset()")
-        true
-      else
-        false
-      end
-    end
-
     def cpu_usage
       rds_stats("CPUUtilization")
     end
@@ -399,18 +382,13 @@ module PGHeroine
       connection.select_all(squish(sql)).to_a
     end
 
-    def execute(sql)
-      connection.execute(sql)
-    end
-
-    def connection
-      @connection ||= Connection.connection
-    end
-
     # from ActiveSupport
     def squish(str)
       str.to_s.gsub(/\A[[:space:]]+/, '').gsub(/[[:space:]]+\z/, '').gsub(/[[:space:]]+/, ' ')
     end
 
+    private
+
+    attr_accessor :connection
   end
 end

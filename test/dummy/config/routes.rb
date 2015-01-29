@@ -1,3 +1,3 @@
 Rails.application.routes.draw do
-  mount PGHeroine::Engine => "/pgheroine"
+  mount PGHeroine::Engine => "/"
 end

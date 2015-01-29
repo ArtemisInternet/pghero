@@ -23,7 +23,12 @@ module PGHeroine
       new_configuration
     end
 
+    def respond_to?(method_name)
+      super || configuration.respond_to?(method_name)
+    end
+
     private
+
     attr_accessor :configuration
 
     def new_configuration(&blk)
@@ -39,7 +44,7 @@ module PGHeroine
     end
 
     def define_proxy_method(method_name)
-      self.class.send(:delegate, method_name, to: :configuration) unless respond_to?(method_name)
+      self.class.send(:delegate, method_name, to: :configuration)
       method(method_name)
     end
   end
