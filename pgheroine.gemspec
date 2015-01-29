@@ -1,27 +1,26 @@
-$:.push File.expand_path("../lib", __FILE__)
+# coding: utf-8
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'pgheroine/version'
 
-# Maintain your gem's version:
-require "pgheroine/version"
+Gem::Specification.new do |spec|
+  spec.name          = "pgheroine"
+  spec.version       = PGHeroine::VERSION
+  spec.authors       = [%q|NCC Group Domain Services|]
+  spec.email         = [%q|ds-development_nccgroup.com|]
+  spec.summary       = %q|Database insights made easy-er|
+  spec.description   = %q|Database insights made easy-er|
+  spec.homepage      = "https://github.com/ArtemisInternet/pgheroine"
+  spec.license       = "MIT"
 
-# Describe your gem and declare its dependencies:
-Gem::Specification.new do |s|
-  s.name        = "pgheroine"
-  s.version     = PGHeroine::VERSION
-  s.authors     = ["NCC Group Domain Services"]
-  s.email       = ["ds-development@nccgroup.com"]
-  s.homepage    = ""
-  s.summary     = ""
-  s.description = ""
-  s.license     = "MIT"
+  spec.files         = Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.rdoc"]
+  spec.test_files    = Dir["test/**/*"]
 
-  s.files = Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.rdoc"]
-  s.test_files = Dir["test/**/*"]
-
-  s.add_dependency "rails", "~> 4.2.0"
+  spec.add_dependency "rails", "~> 4.2.0"
 
   if RUBY_PLATFORM == "java"
-    s.add_development_dependecy "activerecord-jdbcpostgresql-adapter"
+    spec.add_development_dependency "activerecord-jdbcpostgresql-adapter"
   else
-    s.add_development_dependency "pg"
+    spec.add_development_dependency "pg"
   end
 end

@@ -1,4 +1,4 @@
-# PGHeroin
+# PGHeroine
 
 ## Installation
 
@@ -17,7 +17,6 @@ filename: `config/routes.rb`
 ```ruby
 MyApp::Application.routes.draw do
   ...
-  
   mount PGHeroine::Engine => %q|/pgheroine|
   ...
 end
@@ -27,7 +26,7 @@ end
 
 PGHeroin includes a simple configuration class that you can use in an intializer if you dislike the defaults for whatever stupid reason.
 
-The configuration is available at PGHeroin.configuration
+The configuration is available at `PGHeroine.configuration`
 
 filename: `config/initializers/pgheroine.rb`
 

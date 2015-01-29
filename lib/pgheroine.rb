@@ -1,4 +1,5 @@
 require 'pgheroine/engine'
+require 'pgheroine/queries'
 
 module PGHeroine
   autoload :Configuration, 'pgheroine/configuration'

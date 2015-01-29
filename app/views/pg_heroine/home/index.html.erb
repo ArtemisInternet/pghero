@@ -1,0 +1,192 @@
+<div id="status">
+  <div class="alert alert-<%= @long_running_queries.empty? ? "success" : "warning" %>">
+    <% if @long_running_queries.any? %>
+      <%= pluralize(@long_running_queries.size, "long running query") %>
+    <% else %>
+      No long running queries
+    <% end %>
+  </div>
+  <div class="alert alert-<%= @good_cache_rate ? "success" : "warning" %>">
+    <% if @good_cache_rate %>
+      Cache hit rate above 99%
+    <% else %>
+      Low cache hit rate
+    <% end %>
+  </div>
+  <div class="alert alert-<%= @good_total_connections ? "success" : "warning" %>">
+    <% if @good_total_connections %>
+      Healthy number of connections
+    <% else %>
+      High number of connections
+    <% end %>
+  </div>
+  <div class="alert alert-<%= @query_stats_enabled && @slow_queries.empty? ? "success" : "warning" %>">
+    <% if !@query_stats_enabled %>
+      Query stats must be enabled for slow queries
+    <% elsif @slow_queries.any? %>
+      <%= pluralize(@slow_queries.size, "slow query") %>
+    <% else %>
+      No slow queries
+    <% end %>
+  </div>
+  <div class="alert alert-<%= @missing_indexes.empty? ? "success" : "warning" %>">
+    <% if @missing_indexes.any? %>
+      <%= pluralize(@missing_indexes.size, "table appears", "tables appear") %> to be missing indexes
+    <% else %>
+      No missing indexes
+    <% end %>
+  </div>
+  <div class="alert alert-<%= @unused_indexes.empty? ? "success" : "warning" %>">
+    <% if @unused_indexes.any? %>
+      <%= pluralize(@unused_indexes.size, "unused index", "unused indexes") %>
+    <% else %>
+      No unused indexes
+    <% end %>
+  </div>
+</div>
+
+<% if @long_running_queries.any? %>
+  <div class="content">
+    <h1>Long Running Queries</h1>
+
+    <%= render partial: "queries_table", locals: {queries: @long_running_queries} %>
+  </div>
+<% end %>
+
+<% if !@good_cache_rate %>
+  <div class="content">
+    <h1>Low Cache Hit Rate</h1>
+
+    <p>
+      Index Hit Rate: <%= (@index_hit_rate * 100).round(1) %>%
+      <br />
+      Table Hit Rate: <%= (@table_hit_rate * 100).round(1) %>%
+    </p>
+
+    <p>
+      The cache hit rate <%= link_to "should be above 99%", "https://devcenter.heroku.com/articles/understanding-postgres-data-caching", target: "_blank" %> in most cases.  You can often increase this by adding more memory.
+      <!-- TODO better suggestions -->
+    </p>
+  </div>
+<% end %>
+
+<% if !@good_total_connections %>
+  <div class="content">
+    <h1>High Number of Connections</h1>
+    <p><%= pluralize(@total_connections, "connection") %></p>
+    <p>
+      <%= link_to "Use connection pooling", "http://www.craigkerstiens.com/2014/05/22/on-connection-pooling/", target: "_blank" %> for better performance. <%= link_to "PgBouncer", "https://wiki.postgresql.org/wiki/PgBouncer", target: "_blank" %> is a solid option.
+    </p>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Top Sources</th>
+          <th>Connections</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @connection_sources.each do |source| %>
+          <tr>
+            <td><%= source["source"] %></td>
+            <td style="width: 20%;"><%= number_with_delimiter(source["total_connections"]) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<% if !@query_stats_enabled %>
+  <div class="content">
+    <h1>Query Stats</h1>
+
+    <% if @query_stats_available %>
+      <p>
+        Query stats are available but not enabled.
+        <%= button_to "Enable", enable_query_stats_path, class: "btn btn-info" %>
+      </p>
+    <% else %>
+      <p>Make them available by adding the following lines to <code>postgresql.conf</code>:</p>
+      <pre>shared_preload_libraries = 'pg_stat_statements'
+pg_stat_statements.track = all</pre>
+      <p>Restart the server for the changes to take effect.</p>
+    <% end %>
+  </div>
+<% end %>
+
+<% if @query_stats_enabled && @slow_queries.any? %>
+  <div class="content">
+    <h1>Slow Queries</h1>
+
+    <p>Slow queries take <%= @slow_query_ms %> ms or more on average and have been called at least <%= @slow_query_calls %> times.</p>
+    <p><%= link_to "Explain queries", explain_path %> to see where to add indexes.</p>
+
+    <%= render partial: "query_stats_table", locals: {queries: @slow_queries} %>
+  </div>
+<% end %>
+
+<% if @missing_indexes.any? %>
+  <div class="content">
+    <h1>Missing Indexes</h1>
+
+    <p>These tables have a large number of rows but indexes are not used often. Add indexes for faster queries.</p>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Table</th>
+          <th>% of Time Index Used</th>
+          <th>Rows in Table</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @missing_indexes.each do |query| %>
+          <tr>
+            <td><%= query["table"] %></td>
+            <td style="width: 30%;"><%= query["percent_of_times_index_used"] %></td>
+            <td style="width: 20%;"><%= number_with_delimiter(query["rows_in_table"]) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
+
+<% if @unused_indexes.any? %>
+  <div class="content">
+    <h1>Unused Indexes</h1>
+
+    <p>
+      Unused indexes cause unnecessary overhead. Remove them
+      <a href="javascript: void(0);" onclick="document.getElementById('migration').style.display = 'block';">with a migration</a>
+      for faster writes.
+    </p>
+
+    <div id="migration" style="display: none;">
+      <pre>rails g migration remove_unused_indexes</pre>
+      <p>And paste</p>
+      <pre style="overflow: scroll; white-space: pre; word-break: normal;"><% @unused_indexes.each do |query| %>
+remove_index <%= query["table"].to_sym.inspect %>, name: <%= query["index"].to_s.inspect %><% end %></pre>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Index Size</th>
+          <th>Index Scans</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @unused_indexes.each do |query| %>
+          <tr>
+            <td><%= query["index"] %><div class="text-muted">on <%= query["table"] %></div></td>
+            <td style="width: 15%;"><%= query["index_size"] %></td>
+            <td style="width: 15%;"><%= query["index_scans"] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>
