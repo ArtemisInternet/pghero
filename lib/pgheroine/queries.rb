@@ -215,23 +215,6 @@ module PGHeroine
       SQL
     end
 
-    def kill(pid)
-      execute("SELECT pg_terminate_backend(#{pid.to_i})").first["pg_terminate_backend"] == "t"
-    end
-
-    def kill_all
-      select_all <<-SQL
-        SELECT
-          pg_terminate_backend(pid)
-        FROM
-          pg_stat_activity
-        WHERE
-          pid <> pg_backend_pid()
-          AND query <> '<insufficient privilege>'
-      SQL
-      true
-    end
-
     # http://www.craigkerstiens.com/2013/01/10/more-on-postgres-performance/
     def query_stats
       if query_stats_enabled?
@@ -372,70 +355,6 @@ module PGHeroine
       !!(defined?(AWS) && access_key_id && secret_access_key && db_instance_identifier)
     end
 
-    def random_password
-      require "securerandom"
-      SecureRandom.base64(40).delete("+/=")[0...24]
-    end
-
-    def create_user(user, options = {})
-      password = options[:password] || random_password
-      schema = options[:schema] || "public"
-      database = options[:database] || Connection.connection_config[:database]
-
-      commands =
-        [
-          "CREATE ROLE #{user} LOGIN PASSWORD #{Connection.connection.quote(password)}",
-          "GRANT CONNECT ON DATABASE #{database} TO #{user}",
-          "GRANT USAGE ON SCHEMA #{schema} TO #{user}"
-        ]
-      if options[:readonly]
-        commands << "GRANT SELECT ON ALL TABLES IN SCHEMA #{schema} TO #{user}"
-        commands << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT SELECT ON TABLES TO #{user}"
-      else
-        commands << "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA #{schema} TO #{user}"
-        commands << "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA #{schema} TO #{user}"
-        commands << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT ALL PRIVILEGES ON TABLES TO #{user}"
-        commands << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT ALL PRIVILEGES ON SEQUENCES TO #{user}"
-      end
-
-      # run commands
-      Connection.transaction do
-        commands.each do |command|
-          execute command
-        end
-      end
-
-      {password: password}
-    end
-
-    def drop_user(user, options = {})
-      schema = options[:schema] || "public"
-      database = options[:database] || Connection.connection_config[:database]
-
-      # thanks shiftb
-      commands =
-        [
-          "REVOKE CONNECT ON DATABASE #{database} FROM #{user}",
-          "REVOKE USAGE ON SCHEMA #{schema} FROM #{user}",
-          "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA #{schema} FROM #{user}",
-          "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA #{schema} FROM #{user}",
-          "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} REVOKE SELECT ON TABLES FROM #{user}",
-          "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} REVOKE SELECT ON SEQUENCES FROM #{user}",
-          "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} REVOKE ALL ON SEQUENCES FROM #{user}",
-          "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} REVOKE ALL ON TABLES FROM #{user}",
-          "DROP ROLE #{user}"
-        ]
-
-      # run commands
-      Connection.transaction do
-        commands.each do |command|
-          execute command
-        end
-      end
-
-      true
-    end
-
     def access_key_id
       ENV["PGHEROINE_ACCESS_KEY_ID"] || ENV["AWS_ACCESS_KEY_ID"]
     end
@@ -446,32 +365,6 @@ module PGHeroine
 
     def db_instance_identifier
       ENV["PGHEROINE_DB_INSTANCE_IDENTIFIER"]
-    end
-
-    def explain(sql)
-      sql = squish(sql)
-      explanation = nil
-      explain_safe = explain_safe?
-
-      # use transaction for safety
-      Connection.transaction do
-        if !explain_safe and (sql.sub(/;\z/, "").include?(";") or sql.upcase.include?("COMMIT"))
-          raise ActiveRecord::StatementInvalid, "Unsafe statement"
-        end
-        explanation = select_all("EXPLAIN #{sql}").map{|v| v["QUERY PLAN"] }.join("\n")
-        raise ActiveRecord::Rollback
-      end
-
-      explanation
-    end
-
-    def explain_safe?
-      begin
-        select_all("SELECT 1; SELECT 1")
-        false
-      rescue ActiveRecord::StatementInvalid
-        true
-      end
     end
 
     def settings

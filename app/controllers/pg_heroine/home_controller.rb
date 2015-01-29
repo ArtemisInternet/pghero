@@ -52,20 +52,6 @@ module PGHeroine
       @connection_stats = PGHeroine.connection_stats
     end
 
-    def explain
-      @title = "Explain"
-      @query = params[:query]
-      # TODO use get + token instead of post so users can share links
-      # need to prevent CSRF and DoS
-      if request.post? and @query
-        begin
-          @explanation = PGHeroine.explain(@query)
-        rescue ActiveRecord::StatementInvalid => e
-          @error = e.message
-        end
-      end
-    end
-
     def tune
       @title = "Tune"
       @settings = PGHeroine.settings
